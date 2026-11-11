@@ -1,0 +1,22 @@
+# L'essai du contrôle des versions (scripts/check-release.sh) : une fausse
+# version complète doit passer, et la même avec un défaut doit être refusée.
+name: Essai du contrôle
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  essai:
+    name: Le contrôle accepte et refuse ce qu'il doit
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: bash scripts/test-check-release.sh
