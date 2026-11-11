@@ -1,0 +1,61 @@
+# Quand une version est publiée ici : contrôler ses fichiers (l'archive de
+# son code source parmi eux), puis retirer les versions d'avant. Ce dépôt ne
+# garde que la dernière version de Mouflon.
+#
+# S'il manque quelque chose, la version retourne en brouillon : le public ne
+# la voit pas, et la précédente reste en place.
+name: Published
+
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+concurrency:
+  group: published
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Contrôler la version, puis retirer les précédentes
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # remet en brouillon ; supprime les versions d'avant et leurs étiquettes
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+      RELEASE_ID: ${{ github.event.release.id }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Les fichiers de la version
+        id: controle
+        run: |
+          case "$TAG" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::$TAG n'est pas une étiquette de version (vX.Y.Z)"; exit 1 ;;
+          esac
+          # Publier une version plus ancienne retirerait la plus récente : refus.
+          RECENTE="$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
+            --jq '.[] | select(.draft | not) | .tag_name' | sort -V | tail -n 1)"
+          [ "$RECENTE" = "$TAG" ] || { echo "::error::$RECENTE est publiée ici, et plus récente que $TAG"; exit 1; }
+          mkdir "$RUNNER_TEMP/fichiers"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/fichiers"
+          ls -l "$RUNNER_TEMP/fichiers"
+          bash scripts/check-release.sh "$RUNNER_TEMP/fichiers" "${TAG#v}"
+      - name: Sinon, la version retourne en brouillon
+        if: failure() && steps.controle.outcome == 'failure'
+        run: |
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=true \
+            --jq '"\(.tag_name) : retournée en brouillon (\(.draft))"'
+      - name: Retirer les versions précédentes
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
+            --jq '.[] | select(.draft | not) | .tag_name' | while read -r ancienne; do
+            if [ "$ancienne" != "$TAG" ]; then
+              echo "retrait de $ancienne"
+              gh release delete "$ancienne" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag < /dev/null
+            fi
+          done
