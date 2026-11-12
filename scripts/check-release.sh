@@ -98,8 +98,16 @@ ssh-keygen -Y verify -f "$PERMIS" -I mouflon -n mouflon -s "$DIR/$LISTE.sig" < "
 #   signature de plus de 4 Kio.
 [[ "$(stat -c %s "$DIR/$LISTE")" -le 65536 ]] || rate "$LISTE est trop longue pour être lue par un Mouflon"
 [[ "$(stat -c %s "$DIR/$LISTE.sig")" -le 4096 ]] || rate "$LISTE.sig est trop longue pour être lue par un Mouflon"
-# - La signature : faite avec SHA-512, la seule empreinte qu'un Mouflon
-#   accepte (`ssh-keygen`, lui, en accepterait d'autres).
+# - La signature : un seul bloc, de sa première ligne à sa dernière, sans
+#   rien avant, après ni à côté (`ssh-keygen` ignore ce qui suit la fin ;
+#   un Mouflon, non).
+[[ "$(head -1 "$DIR/$LISTE.sig")" == "-----BEGIN SSH SIGNATURE-----" \
+    && "$(tail -1 "$DIR/$LISTE.sig")" == "-----END SSH SIGNATURE-----" ]] \
+    || rate "$LISTE.sig n'est pas un bloc de signature, et rien d'autre"
+! sed '1d;$d' "$DIR/$LISTE.sig" | LC_ALL=C grep -qvE '^[A-Za-z0-9+/=]+$' \
+    || rate "$LISTE.sig contient autre chose que sa signature"
+# - Faite avec SHA-512, la seule empreinte qu'un Mouflon accepte
+#   (`ssh-keygen`, lui, en accepterait d'autres).
 SIGNATURE="$(sed '/^-----/d' "$DIR/$LISTE.sig" | base64 -d 2> /dev/null | LC_ALL=C tr -c 'a-z0-9' ' ')"
 [[ " $SIGNATURE " == *" sha512 "* && " $SIGNATURE " != *" sha256 "* ]] \
     || rate "$LISTE.sig n'est pas une signature faite avec SHA-512"
@@ -154,6 +162,35 @@ LINUX="$(tar -tzf "$DIR/Mouflon-linux-x86_64.tar.gz")" || rate "Mouflon-linux-x8
 for f in mouflon LICENSE-MIT LICENSE-APACHE CREDITS.md; do
     contient "$LINUX" "Mouflon/$f" || rate "l'aperçu pour Linux n'a pas de $f"
 done
+
+# ── Ce qu'une version retire ────────────────────────────────────────────────
+# Une version peut dire ce qu'elle ne livre plus (`a-retirer.txt`, à la
+# racine de son dossier pour Windows ou Linux : une place par ligne, un nom
+# simple ou `pets/<nom>`). Un Mouflon installé l'enlève en se mettant à
+# jour : jamais le programme, ni le dossier des animaux, ni rien hors de son
+# dossier. Ce contrôle refuse une liste qui le demanderait.
+retraits() {
+    local quoi="$1" ligne
+    while IFS= read -r ligne; do
+        [[ -z "$ligne" || "$ligne" == \#* ]] && continue
+        [[ "$ligne" =~ ^(pets/)?[A-Za-z0-9][A-Za-z0-9\ ._-]{0,99}$ && "$ligne" != *[.\ ] ]] \
+            || rate "$quoi : a-retirer.txt a une ligne qui n'est pas une place du dossier de Mouflon : « $ligne »"
+        case "$(tr '[:upper:]' '[:lower:]' <<< "$ligne")" in
+            mouflon | mouflon.exe | pets) rate "$quoi : a-retirer.txt ne peut pas retirer « $ligne »" ;;
+        esac
+        ! contient "$2" "Mouflon/$ligne" || rate "$quoi : a-retirer.txt retire « $ligne », que la version livre"
+    done
+}
+if contient "$WINDOWS" "Mouflon/a-retirer.txt"; then
+    ! unzip -p "$DIR/Mouflon-windows-x64.zip" "Mouflon/a-retirer.txt" 2> /dev/null | LC_ALL=C grep -q '[^ -~]' \
+        || rate "le dossier pour Windows : a-retirer.txt contient autre chose que du texte simple"
+    retraits "le dossier pour Windows" "$WINDOWS" < <(unzip -p "$DIR/Mouflon-windows-x64.zip" "Mouflon/a-retirer.txt")
+fi
+if contient "$LINUX" "Mouflon/a-retirer.txt"; then
+    ! tar -xzOf "$DIR/Mouflon-linux-x86_64.tar.gz" Mouflon/a-retirer.txt | LC_ALL=C grep -q '[^ -~]' \
+        || rate "l'aperçu pour Linux : a-retirer.txt contient autre chose que du texte simple"
+    retraits "l'aperçu pour Linux" "$LINUX" < <(tar -xzOf "$DIR/Mouflon-linux-x86_64.tar.gz" Mouflon/a-retirer.txt)
+fi
 
 # ── Les trois programmes sont de vrais Mouflon ──────────────────────────────
 # Un programme d'essai de la mise à jour (il porte une clé d'essai, et ne

@@ -152,6 +152,26 @@ attend refuse "une somme écrite en majuscules"
 fabrique "$T/version"; for i in $(seq 1 1300); do echo "note $i 0123456789012345678901234567890123456789"; done >> "$T/version/Mouflon-version.txt"; signe "$T/version"
 attend refuse "une liste de plus de 64 Kio"
 
+fabrique "$T/version"; echo "AAAA" >> "$T/version/Mouflon-version.txt.sig"
+attend refuse "une signature suivie d'autre chose"
+
+fabrique "$T/version"; cat "$T/version/Mouflon-version.txt.sig" "$T/version/Mouflon-version.txt.sig" > "$T/deux"; mv "$T/deux" "$T/version/Mouflon-version.txt.sig"
+attend refuse "deux signatures dans le même fichier"
+
+fabrique "$T/version"; sed -i 's/^-----END SSH SIGNATURE-----$/-----END SSH SIGNATURE----- et la suite/' "$T/version/Mouflon-version.txt.sig"
+attend refuse "une signature dont la dernière ligne dit autre chose"
+
+fabrique "$T/version"; printf '# plus livres\nvieux.dll\npets/pelote\n\n' > "$A/win/Mouflon/a-retirer.txt"; cp "$A/win/Mouflon/a-retirer.txt" "$A/linux/Mouflon/"; emballe "$T/version"
+attend accepte "une version qui retire un fichier et un animal"
+
+for ligne in "../notes.txt" "C:notes.txt" "pets/../x" "Mouflon.exe" "PETS" "pets" "x." "LICENSE-MIT"; do
+    fabrique "$T/version"; echo "$ligne" > "$A/win/Mouflon/a-retirer.txt"; emballe "$T/version"
+    attend refuse "une version qui voudrait retirer « $ligne » (Windows)"
+done
+fabrique "$T/version"; echo "mouflon" > "$A/linux/Mouflon/a-retirer.txt"; emballe "$T/version"
+attend refuse "une version qui voudrait retirer le programme (Linux)"
+rm -f "$A/win/Mouflon/a-retirer.txt" "$A/linux/Mouflon/a-retirer.txt"
+
 fabrique "$T/version"; echo "lit MOUFLON_ESSAI_SOURCE" > "$A/linux/Mouflon/mouflon"; emballe "$T/version"
 attend refuse "un programme d'essai pour Linux"
 
