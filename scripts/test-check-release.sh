@@ -24,7 +24,7 @@ fabrique() {
       echo "MIT License" > LICENSE-MIT; echo "Apache License" > LICENSE-APACHE
       printf '[workspace.package]\nversion = "%s"\n' "$V" > Cargo.toml
       mkdir -p .github/workflows
-      touch Cargo.lock README.md CREDITS.md docs/format.md docs/rig.md docs/squelette.md crates/main.rs \
+      touch Cargo.lock README.md CREDITS.md docs/format.md docs/rig.md docs/sources.md docs/squelette.md crates/main.rs \
           .gitattributes .gitignore .github/workflows/ci.yml )
     # L'app pour Mac, signée et notarisée.
     ( cd "$s/Mouflon.app/Contents"

@@ -21,8 +21,9 @@ DIR="${1:?le dossier des fichiers de la version}"
 VERSION="${2:?le numéro de la version, comme 1.0.4}"
 PROGRAMMES="Mouflon-linux-x86_64.tar.gz Mouflon-macos-arm64.zip Mouflon-source.zip Mouflon-windows-x64.zip"
 # Les seuls fichiers Markdown que l'archive du code peut contenir : ses
-# crédits, son README et les trois modes d'emploi pour créer un animal.
-MARKDOWN="CREDITS.md README.md docs/format.md docs/rig.md docs/squelette.md"
+# crédits, son README, les trois modes d'emploi pour créer un animal, et les
+# sources (ce qui a été lu et regardé pour les races, l'animation, les sons).
+MARKDOWN="CREDITS.md README.md docs/format.md docs/rig.md docs/sources.md docs/squelette.md"
 # Ses seuls fichiers et dossiers cachés, tous à sa racine.
 CACHES=".gitattributes .github .gitignore"
 
