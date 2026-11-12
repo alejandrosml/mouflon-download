@@ -21,6 +21,7 @@ This repository only holds the files of the latest version, under
 | `Mouflon-linux-x86_64.tar.gz` | the Linux preview (x86_64, X11) |
 | `Mouflon-source.zip` | the source code of that version |
 | `SHA256SUMS` | the checksums of the four files above |
+| `Mouflon-version.txt`, `Mouflon-version.txt.sig` | the list of those four files (version, sizes, SHA-512 sums) and its signature by the author: an installed Mouflon reads it to update itself, and installs nothing the list does not announce. The author's public key is [`cle-de-signature.pub`](cle-de-signature.pub) |
 
 Mouflon is open source, under the [MIT License](LICENSE-MIT) or the
 [Apache License 2.0](LICENSE-APACHE), at your option. Each version comes with
@@ -52,6 +53,7 @@ Ce dépôt ne contient que les fichiers de la dernière version, sous
 | `Mouflon-linux-x86_64.tar.gz` | l'aperçu pour Linux (x86_64, X11) |
 | `Mouflon-source.zip` | le code source de cette version |
 | `SHA256SUMS` | les sommes de contrôle des quatre fichiers ci-dessus |
+| `Mouflon-version.txt`, `Mouflon-version.txt.sig` | la liste de ces quatre fichiers (version, tailles, sommes SHA-512) et sa signature par l'auteur : un Mouflon installé la lit pour se mettre à jour, et n'installe rien qu'elle n'annonce. La clé publique de l'auteur est [`cle-de-signature.pub`](cle-de-signature.pub) |
 
 Mouflon est open source, sous [licence MIT](LICENSE-MIT) ou
 [licence Apache 2.0](LICENSE-APACHE), au choix. Chaque version sort avec
