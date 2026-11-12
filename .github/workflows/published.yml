@@ -2,8 +2,9 @@
 # son code source parmi eux), puis retirer les versions d'avant. Ce dépôt ne
 # garde que la dernière version de Mouflon.
 #
-# S'il manque quelque chose, la version retourne en brouillon : le public ne
-# la voit pas, et la précédente reste en place.
+# S'il manque quelque chose, ou si le contrôle n'a pas pu se faire, la
+# version retourne en brouillon : le public ne la voit pas, et la précédente
+# reste en place.
 name: Published
 
 on:
@@ -45,11 +46,17 @@ jobs:
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/fichiers"
           ls -l "$RUNNER_TEMP/fichiers"
           bash scripts/check-release.sh "$RUNNER_TEMP/fichiers" "${TAG#v}"
+      # Quoi qui ait manqué jusqu'ici (le contrôle, ou de quoi le faire) :
+      # une version qui n'a pas été contrôlée ne reste pas en ligne. Son
+      # étiquette part avec elle : republiée, la version sera contrôlée par
+      # le contrôle du jour, pas par celui du jour de l'étiquette.
       - name: Sinon, la version retourne en brouillon
-        if: failure() && steps.controle.outcome == 'failure'
+        if: failure()
         run: |
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=true \
             --jq '"\(.tag_name) : retournée en brouillon (\(.draft))"'
+          gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$TAG" \
+            || echo "l'étiquette $TAG n'a pas pu être retirée"
       - name: Retirer les versions précédentes
         run: |
           gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
