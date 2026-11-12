@@ -129,6 +129,38 @@ attend refuse "une liste qui annonce un fichier de plus"
 fabrique "$T/version"; echo "exige un systeme plus recent" >> "$T/version/Mouflon-version.txt"; signe "$T/version"
 attend accepte "une liste avec une ligne d'un autre mot (un Mouflon l'ignore)"
 
+# Ce qu'un Mouflon installé ne saurait pas lire ne passe pas non plus.
+fabrique "$T/version"; rm "$T/version/Mouflon-version.txt.sig"
+ssh-keygen -q -Y sign -O hashalg=sha256 -f "$T/cle" -n mouflon "$T/version/Mouflon-version.txt" > /dev/null 2>&1
+attend refuse "une liste signée avec SHA-256 (un Mouflon n'accepte que SHA-512)"
+
+fabrique "$T/version"; liste "$T/version" 9.9.1234567
+attend refuse "un numéro de version trop long pour un Mouflon" 9.9.1234567
+
+fabrique "$T/version"; printf '\fversion 9.9.10\n' >> "$T/version/Mouflon-version.txt"; signe "$T/version"
+attend refuse "une seconde ligne « version » cachée derrière un caractère de contrôle"
+
+fabrique "$T/version"; printf 'note d\351t\351\n' >> "$T/version/Mouflon-version.txt"; signe "$T/version"
+attend refuse "une liste qui n'est pas du texte simple"
+
+fabrique "$T/version"; sed -i 's/^version /version  /' "$T/version/Mouflon-version.txt"; signe "$T/version"
+attend refuse "une ligne « version » avec une espace de trop"
+
+fabrique "$T/version"; sed -i -E 's/^(fichier Mouflon-source.zip [0-9]+ )([0-9a-f]+)$/\1\U\2/' "$T/version/Mouflon-version.txt"; signe "$T/version"
+attend refuse "une somme écrite en majuscules"
+
+fabrique "$T/version"; for i in $(seq 1 1300); do echo "note $i 0123456789012345678901234567890123456789"; done >> "$T/version/Mouflon-version.txt"; signe "$T/version"
+attend refuse "une liste de plus de 64 Kio"
+
+fabrique "$T/version"; echo "lit MOUFLON_ESSAI_SOURCE" > "$A/linux/Mouflon/mouflon"; emballe "$T/version"
+attend refuse "un programme d'essai pour Linux"
+
+fabrique "$T/version"; echo "lit MOUFLON_ESSAI_SOURCE" > "$A/win/Mouflon/Mouflon.exe"; emballe "$T/version"
+attend refuse "un programme d'essai pour Windows"
+
+fabrique "$T/version"; echo "lit MOUFLON_ESSAI_SOURCE" > "$A/Mouflon.app/Contents/MacOS/mouflon"; emballe "$T/version"
+attend refuse "un programme d'essai pour Mac"
+
 fabrique "$T/version"; cut -d' ' -f1,2 "$T/autre-cle.pub" > "$A/Mouflon-$V/crates/mouflon-app/assets/cle-de-signature.pub"; emballe "$T/version"
 attend refuse "un code source qui porte une autre clé"
 

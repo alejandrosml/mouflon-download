@@ -44,7 +44,8 @@ contient() { grep -qxF -- "$2" <<< "$1"; }
 # texte. (`grep` lit tout : avec `-q`, il fermerait le tuyau avant la fin.)
 dit() { unzip -p "$1" "$2" | grep -F -- "$3" > /dev/null; }
 
-[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || rate "$VERSION n'est pas un numéro de version"
+# (Trois nombres d'au plus six chiffres : c'est ce qu'un Mouflon sait lire.)
+[[ "$VERSION" =~ ^[0-9]{1,6}\.[0-9]{1,6}\.[0-9]{1,6}$ ]] || rate "$VERSION n'est pas un numéro de version"
 
 # ── Les sept fichiers, et rien d'autre ──────────────────────────────────────
 ATTENDUS="Mouflon-linux-x86_64.tar.gz Mouflon-macos-arm64.zip Mouflon-source.zip $LISTE $LISTE.sig Mouflon-windows-x64.zip SHA256SUMS"
@@ -90,9 +91,30 @@ trap 'rm -f "$PERMIS"' EXIT
 echo "mouflon $CLE" > "$PERMIS"
 ssh-keygen -Y verify -f "$PERMIS" -I mouflon -n mouflon -s "$DIR/$LISTE.sig" < "$DIR/$LISTE" > /dev/null 2>&1 \
     || rate "$LISTE n'est pas signé par la clé de l'auteur"
+# Ce contrôle n'accepte rien qu'un Mouflon installé refuserait de lire : une
+# version qui passerait ici sans pouvoir être lue là-bas arrêterait la mise
+# à jour de tout le monde, sans bruit. Il est donc plus strict qu'eux.
+# - La taille : un Mouflon ne lit pas une liste de plus de 64 Kio, ni une
+#   signature de plus de 4 Kio.
+[[ "$(stat -c %s "$DIR/$LISTE")" -le 65536 ]] || rate "$LISTE est trop longue pour être lue par un Mouflon"
+[[ "$(stat -c %s "$DIR/$LISTE.sig")" -le 4096 ]] || rate "$LISTE.sig est trop longue pour être lue par un Mouflon"
+# - La signature : faite avec SHA-512, la seule empreinte qu'un Mouflon
+#   accepte (`ssh-keygen`, lui, en accepterait d'autres).
+SIGNATURE="$(sed '/^-----/d' "$DIR/$LISTE.sig" | base64 -d 2> /dev/null | LC_ALL=C tr -c 'a-z0-9' ' ')"
+[[ " $SIGNATURE " == *" sha512 "* && " $SIGNATURE " != *" sha256 "* ]] \
+    || rate "$LISTE.sig n'est pas une signature faite avec SHA-512"
+# - Le texte : des lettres, chiffres et signes ordinaires, une espace entre
+#   les mots, des fins de ligne simples. Rien d'autre (ni tabulation, ni
+#   retour chariot, ni accent) : chaque ligne se lit alors ici comme là-bas.
+! LC_ALL=C grep -q '[^ -~]' "$DIR/$LISTE" || rate "$LISTE contient autre chose que du texte simple"
+# - Chaque ligne « version » ou « fichier » s'écrit exactement ainsi, sans
+#   espace de trop. (Une ligne d'un autre mot est permise : un Mouflon
+#   l'ignore.)
+MAL_ECRITES="$(awk '$1 == "version" || $1 == "fichier"' "$DIR/$LISTE" \
+    | { grep -vE '^(version [0-9]{1,6}\.[0-9]{1,6}\.[0-9]{1,6}|fichier [A-Za-z0-9][A-Za-z0-9._-]{0,79} [0-9]{1,15} [0-9a-f]{128})$' || true; })"
+[[ -z "$MAL_ECRITES" ]] || rate "$LISTE a une ligne qu'un Mouflon ne lirait pas : « ${MAL_ECRITES%%$'\n'*} »"
 # Une seule ligne « version », celle de ce numéro ; une ligne « fichier <nom>
-# <taille> <somme> » pour chacun des quatre fichiers, et pour eux seuls. (Une
-# ligne d'un autre mot est permise : un Mouflon l'ignore.)
+# <taille> <somme> » pour chacun des quatre fichiers, et pour eux seuls.
 DITES="$(awk '$1 == "version"' "$DIR/$LISTE")"
 [[ "$DITES" == "version $VERSION" ]] \
     || rate "$LISTE devrait dire « version $VERSION », et dit « ${DITES//$'\n'/ ; } »"
@@ -132,5 +154,16 @@ LINUX="$(tar -tzf "$DIR/Mouflon-linux-x86_64.tar.gz")" || rate "Mouflon-linux-x8
 for f in mouflon LICENSE-MIT LICENSE-APACHE CREDITS.md; do
     contient "$LINUX" "Mouflon/$f" || rate "l'aperçu pour Linux n'a pas de $f"
 done
+
+# ── Les trois programmes sont de vrais Mouflon ──────────────────────────────
+# Un programme d'essai de la mise à jour (il porte une clé d'essai, et ne
+# cherche ses versions que dans un dossier) ne se publie pas : il se
+# reconnaît au nom de la variable qu'il lit, que le vrai Mouflon ne connaît
+# pas.
+# (`grep` lit tout : avec `-q`, il fermerait le tuyau avant la fin.)
+d_essai() { LC_ALL=C grep -a -F "MOUFLON_ESSAI_SOURCE" > /dev/null; }
+! unzip -p "$DIR/Mouflon-macos-arm64.zip" | d_essai || rate "l'app pour Mac est un programme d'essai"
+! unzip -p "$DIR/Mouflon-windows-x64.zip" | d_essai || rate "le programme pour Windows est un programme d'essai"
+! tar -xzOf "$DIR/Mouflon-linux-x86_64.tar.gz" | d_essai || rate "le programme pour Linux est un programme d'essai"
 
 echo "✓ Mouflon $VERSION : les trois programmes, le code source et ses deux licences y sont, et leur liste est signée par l'auteur."
