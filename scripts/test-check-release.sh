@@ -23,7 +23,9 @@ fabrique() {
     ( cd "$s/Mouflon-$V"
       echo "MIT License" > LICENSE-MIT; echo "Apache License" > LICENSE-APACHE
       printf '[workspace.package]\nversion = "%s"\n' "$V" > Cargo.toml
-      touch Cargo.lock README.md CREDITS.md docs/format.md docs/rig.md docs/squelette.md crates/main.rs )
+      mkdir -p .github/workflows
+      touch Cargo.lock README.md CREDITS.md docs/format.md docs/rig.md docs/sources.md docs/squelette.md crates/main.rs \
+          .gitattributes .gitignore .github/workflows/ci.yml )
     # L'app pour Mac, signée et notarisée.
     ( cd "$s/Mouflon.app/Contents"
       printf '<key>CFBundleShortVersionString</key>\n<string>%s</string>\n' "$V" > Info.plist
@@ -79,11 +81,23 @@ attend refuse "un code source dont la licence MIT n'en est pas une"
 fabrique "$T/version"; printf 'version = "9.9.8"\n' > "$A/Mouflon-$V/Cargo.toml"; emballe "$T/version"
 attend refuse "le code source d'une autre version"
 
-fabrique "$T/version"; touch "$A/Mouflon-$V/CLAUDE.md"; emballe "$T/version"
-attend refuse "un code source avec une note de travail (CLAUDE.md)"
+fabrique "$T/version"; touch "$A/Mouflon-$V/NOTES.md"; emballe "$T/version"
+attend refuse "un code source avec un fichier Markdown de plus"
 
-fabrique "$T/version"; mkdir "$A/Mouflon-$V/docs/chantiers"; touch "$A/Mouflon-$V/docs/chantiers/suite.md"; emballe "$T/version"
-attend refuse "un code source avec un chantier en cours"
+fabrique "$T/version"; mkdir "$A/Mouflon-$V/docs/suite"; touch "$A/Mouflon-$V/docs/suite/plan.md"; emballe "$T/version"
+attend refuse "un code source avec un fichier Markdown de plus, dans un dossier"
+
+fabrique "$T/version"; touch "$A/Mouflon-$V/crates/NOTES.MD"; emballe "$T/version"
+attend refuse "un fichier Markdown de plus, en majuscules"
+
+fabrique "$T/version"; touch "$A/Mouflon-$V/docs/plan.markdown"; emballe "$T/version"
+attend refuse "un fichier Markdown de plus, écrit .markdown"
+
+fabrique "$T/version"; mkdir "$A/Mouflon-$V/crates/.reglages"; touch "$A/Mouflon-$V/crates/.reglages/local.json"; emballe "$T/version"
+attend refuse "un code source avec un dossier caché de plus"
+
+fabrique "$T/version"; touch "$A/Mouflon-$V/.env"; emballe "$T/version"
+attend refuse "un code source avec un fichier caché de plus"
 
 fabrique "$T/version"; rm "$A/Mouflon-$V/docs/rig.md"; emballe "$T/version"
 attend refuse "un code source sans un de ses modes d'emploi"

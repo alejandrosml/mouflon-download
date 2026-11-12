@@ -21,8 +21,11 @@ DIR="${1:?le dossier des fichiers de la version}"
 VERSION="${2:?le numéro de la version, comme 1.0.4}"
 PROGRAMMES="Mouflon-linux-x86_64.tar.gz Mouflon-macos-arm64.zip Mouflon-source.zip Mouflon-windows-x64.zip"
 # Les seuls fichiers Markdown que l'archive du code peut contenir : ses
-# crédits, son README et les trois modes d'emploi pour créer un animal.
-MARKDOWN="CREDITS.md README.md docs/format.md docs/rig.md docs/squelette.md"
+# crédits, son README, les trois modes d'emploi pour créer un animal, et les
+# sources (ce qui a été lu et regardé pour les races, l'animation, les sons).
+MARKDOWN="CREDITS.md README.md docs/format.md docs/rig.md docs/sources.md docs/squelette.md"
+# Ses seuls fichiers et dossiers cachés, tous à sa racine.
+CACHES=".gitattributes .github .gitignore"
 
 rate() { echo "::error::$*"; exit 1; }
 # contient <liste> <chemin> : la liste d'une archive nomme ce chemin.
@@ -57,10 +60,16 @@ dit "$DIR/Mouflon-source.zip" "$P/LICENSE-APACHE" "Apache License" \
     || rate "le code source n'a pas la licence Apache"
 unzip -p "$DIR/Mouflon-source.zip" "$P/Cargo.toml" | grep -x "version = \"$VERSION\"" > /dev/null \
     || rate "le code source n'est pas celui de la version $VERSION"
-ECRITS="$({ grep -E '\.md$' <<< "$CODE" || true; } | sed "s#^$P/##" | LC_ALL=C sort | tr '\n' ' ')"
+CHEMINS="$(sed "s#^$P/##" <<< "$CODE" | { grep -v '^$' || true; })"
+# Markdown sous toutes ses écritures : .md, .MD, .markdown, .mdx.
+ECRITS="$({ grep -iE '\.(md|markdown|mdx)$' <<< "$CHEMINS" || true; } | LC_ALL=C sort | tr '\n' ' ')"
 [[ "$ECRITS" == "$MARKDOWN " ]] \
     || rate "les fichiers Markdown du code source devraient être « $MARKDOWN », et ce sont « ${ECRITS% } »"
-! grep -qE "^$P/\.git/" <<< "$CODE" || rate "le code source contient un dossier .git"
+! grep -E "^\.git/" <<< "$CHEMINS" > /dev/null || rate "le code source contient un dossier .git"
+EN_TROP="$({ grep -E '(^|/)\.[^/]' <<< "$CHEMINS" || true; } | sed -E 's#^((.*/)?\.[^/]+).*#\1#' | LC_ALL=C sort -u \
+    | { grep -vxF -f <(tr ' ' '\n' <<< "$CACHES") || true; } | tr '\n' ' ')"
+[[ -z "$EN_TROP" ]] \
+    || rate "les fichiers cachés du code source devraient être « $CACHES », et il a aussi « ${EN_TROP% } »"
 
 # ── L'app pour Mac : de cette version, signée, notarisée ────────────────────
 MAC="$(unzip -Z1 "$DIR/Mouflon-macos-arm64.zip")" || rate "Mouflon-macos-arm64.zip ne se lit pas"
