@@ -163,8 +163,10 @@ attend refuse "une signature dont la dernière ligne dit autre chose"
 
 fabrique "$T/version"; printf '# plus livres\nvieux.dll\npets/pelote\n\n' > "$A/win/Mouflon/a-retirer.txt"; cp "$A/win/Mouflon/a-retirer.txt" "$A/linux/Mouflon/"; emballe "$T/version"
 attend accepte "une version qui retire un fichier et un animal"
+fabrique "$T/version"; printf 'console.txt\nCOM10\npets/nulle\n' > "$A/win/Mouflon/a-retirer.txt"; emballe "$T/version"
+attend accepte "des noms qui ressemblent à ceux d'un appareil de Windows sans en être"
 
-for ligne in "../notes.txt" "C:notes.txt" "pets/../x" "Mouflon.exe" "PETS" "pets" "x." "LICENSE-MIT"; do
+for ligne in "../notes.txt" "C:notes.txt" "pets/../x" "Mouflon.exe" "PETS" "pets" "x." "LICENSE-MIT" "nul" "Con.txt" "pets/aux" "COM1" "lpt9.log"; do
     fabrique "$T/version"; echo "$ligne" > "$A/win/Mouflon/a-retirer.txt"; emballe "$T/version"
     attend refuse "une version qui voudrait retirer « $ligne » (Windows)"
 done

@@ -178,6 +178,13 @@ retraits() {
         case "$(tr '[:upper:]' '[:lower:]' <<< "$ligne")" in
             mouflon | mouflon.exe | pets) rate "$quoi : a-retirer.txt ne peut pas retirer « $ligne »" ;;
         esac
+        # Un nom d'appareil de Windows (NUL, CON, COM1…, avec ou sans
+        # extension) n'est pas un nom de fichier : Mouflon refuserait la
+        # version entière.
+        local nom="${ligne#pets/}"
+        nom="$(tr '[:lower:]' '[:upper:]' <<< "${nom%%.*}")"
+        [[ ! "$nom" =~ ^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$ ]] \
+            || rate "$quoi : a-retirer.txt nomme un appareil de Windows : « $ligne »"
         ! contient "$2" "Mouflon/$ligne" || rate "$quoi : a-retirer.txt retire « $ligne », que la version livre"
     done
 }
