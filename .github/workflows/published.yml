@@ -5,6 +5,10 @@
 # S'il manque quelque chose, ou si le contrôle n'a pas pu se faire, la
 # version retourne en brouillon : le public ne la voit pas, et la précédente
 # reste en place.
+#
+# Du lundi au vendredi, entre 7 h et 18 h, heure de Paris, une version ne se
+# publie pas : publiée à ces heures-là, elle retourne aussitôt en brouillon et
+# perd son étiquette, sans autre changement ; on la publie de nouveau le soir.
 name: Published
 
 on:
@@ -17,10 +21,29 @@ concurrency:
   group: published
   cancel-in-progress: false
 
+env:
+  # Du lundi (1) au vendredi (5), de 7 h à 17 h 59, heure de Paris : la
+  # version retourne en brouillon. Une heure qui ne se lit pas aussi, et un
+  # décalage qui n'est pas celui de Paris (+0100 ou +0200 : sans son fichier
+  # de fuseau, `date` donnerait l'heure UTC).
+  HEURE: |
+    PARIS="$(TZ=Europe/Paris date '+%u %H%M %z')"
+    case "$PARIS" in
+      [1-5]\ 0[7-9][0-5][0-9]\ +0[12]00 | [1-5]\ 1[0-7][0-5][0-9]\ +0[12]00)
+        echo "::error::il est $PARIS à Paris (jour de la semaine, heure, décalage) : du lundi au vendredi, entre 7 h et 18 h, une version ne se publie pas. Elle retourne en brouillon ; la publier de nouveau le soir."
+        exit 1 ;;
+      [1-7]\ [0-1][0-9][0-5][0-9]\ +0[12]00 | [1-7]\ 2[0-3][0-5][0-9]\ +0[12]00)
+        echo "Paris : $PARIS (jour de la semaine, heure, décalage)" ;;
+      *)
+        echo "::error::le jour et l'heure de Paris ne se lisent pas : « $PARIS »"
+        exit 1 ;;
+    esac
+
 jobs:
   publish:
     name: Contrôler la version, puis retirer les précédentes
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: write # remet en brouillon ; supprime les versions d'avant et leurs étiquettes
     env:
@@ -28,6 +51,8 @@ jobs:
       RELEASE_ID: ${{ github.event.release.id }}
       GH_TOKEN: ${{ github.token }}
     steps:
+      - name: L'heure
+        run: eval "$HEURE"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -46,12 +71,13 @@ jobs:
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/fichiers"
           ls -l "$RUNNER_TEMP/fichiers"
           bash scripts/check-release.sh "$RUNNER_TEMP/fichiers" "${TAG#v}"
-      # Quoi qui ait manqué jusqu'ici (le contrôle, ou de quoi le faire) :
-      # une version qui n'a pas été contrôlée ne reste pas en ligne. Son
-      # étiquette part avec elle : republiée, la version sera contrôlée par
-      # le contrôle du jour, pas par celui du jour de l'étiquette.
+      # Quoi qui ait manqué jusqu'ici (l'heure, le contrôle, de quoi le faire,
+      # ou le temps : un quart d'heure) : une version qui n'a pas été
+      # contrôlée ne reste pas en ligne. Son étiquette part avec elle :
+      # republiée, la version sera contrôlée par le contrôle du jour, pas par
+      # celui du jour de l'étiquette.
       - name: Sinon, la version retourne en brouillon
-        if: failure()
+        if: failure() || cancelled()
         run: |
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=true \
             --jq '"\(.tag_name) : retournée en brouillon (\(.draft))"'

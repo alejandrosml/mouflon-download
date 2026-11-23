@@ -1,5 +1,8 @@
 # L'essai du contrôle des versions (scripts/check-release.sh) : une fausse
 # version complète doit passer, et la même avec un défaut doit être refusée.
+#
+# Du lundi au vendredi, entre 7 h et 18 h, heure de Paris, l'essai ne se fait
+# pas : il regarde l'heure en commençant, et s'arrête.
 name: Essai du contrôle
 
 on:
@@ -9,13 +12,34 @@ on:
 
 permissions: {}
 
+env:
+  # Du lundi (1) au vendredi (5), de 7 h à 17 h 59, heure de Paris : rien.
+  # Une heure qui ne se lit pas arrête l'essai, et un décalage qui n'est pas
+  # celui de Paris aussi (+0100 ou +0200 : sans son fichier de fuseau,
+  # `date` donnerait l'heure UTC).
+  HEURE: |
+    PARIS="$(TZ=Europe/Paris date '+%u %H%M %z')"
+    case "$PARIS" in
+      [1-5]\ 0[7-9][0-5][0-9]\ +0[12]00 | [1-5]\ 1[0-7][0-5][0-9]\ +0[12]00)
+        echo "::error::il est $PARIS à Paris (jour de la semaine, heure, décalage) : du lundi au vendredi, entre 7 h et 18 h, l'essai ne se fait pas."
+        exit 1 ;;
+      [1-7]\ [0-1][0-9][0-5][0-9]\ +0[12]00 | [1-7]\ 2[0-3][0-5][0-9]\ +0[12]00)
+        echo "Paris : $PARIS (jour de la semaine, heure, décalage)" ;;
+      *)
+        echo "::error::le jour et l'heure de Paris ne se lisent pas : « $PARIS »"
+        exit 1 ;;
+    esac
+
 jobs:
   essai:
     name: Le contrôle accepte et refuse ce qu'il doit
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
+      - name: L'heure
+        run: eval "$HEURE"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
